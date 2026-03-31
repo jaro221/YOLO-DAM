@@ -17,7 +17,8 @@
       "Bash(ls -lah d:/Projekty/2022_01_BattPor/2025_12_Dresden/VSCODE/*.py)",
       "Bash(xargs -I {} echo \"Training images: {}\")",
       "Bash(D:Programyanaconda3envsTF_3_8python.exe -c \"from ultralytics import YOLO; print\\(''Ultralytics available''\\)\")",
-      "Bash(\"D:\\\\Programy\\\\anaconda3\\\\envs\\\\TF_3_8\\\\python.exe\" -c \"from ultralytics import YOLO; print\\(''Ultralytics available''\\)\")"
+      "Bash(\"D:\\\\Programy\\\\anaconda3\\\\envs\\\\TF_3_8\\\\python.exe\" -c \"from ultralytics import YOLO; print\\(''Ultralytics available''\\)\")",
+      "Bash(git config:*)"
     ]
   }
 }

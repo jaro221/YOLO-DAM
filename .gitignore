@@ -1,0 +1,44 @@
+# Model files (large, trained weights)
+*.h5
+*.pt
+*.pth
+*.onnx
+*.pkl
+
+# Training outputs
+Models/
+Training_Results/
+TEST_RESULTS/
+test_run_*/
+
+# Training logs (large)
+*.log
+train_log*.txt
+training_log*.json
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data (if large)
+# dataset/
+# data/
+
+# Temporary
+*.tmp
+*.temp
+.claude/cache/
