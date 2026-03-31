@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(conda run:*)",
+      "Read(//c/Users//**)",
+      "Read(//mnt/c/**)",
+      "Read(//d//**)",
+      "Bash(\"/d/Programy/anaconda3/envs/tf_3_8/python.exe\" main.py)",
+      "Bash(\"/d/Programy/anaconda3/envs/tf_3_8/python.exe\" -c \":*)",
+      "Bash(find /c/Users/jarom/AppData/Local/Temp/claude -name *.output)",
+      "Bash(tasklist)",
+      "Bash(taskkill //F //PID 35924 //PID 11344)",
+      "Bash(grep -n \"class.*Head\\\\|def.*v26\\\\|v26.*model\\\\|YOLOv26\" /d/Projekty/2022_01_BattPor/2025_12_Dresden/DEF_AUTOYOLO/*.py)",
+      "Bash(find /d/Projekty/2022_01_BattPor/2025_12_Dresden -name *26* -o -name *v26*)",
+      "Bash(\"/d/Programy/anaconda3/envs/tf_3_8/python.exe\":*)",
+      "Bash(D:/Programy/anaconda3/envs/TF_3_8/python.exe YOLO_merching.py)",
+      "Bash(ls -lah d:/Projekty/2022_01_BattPor/2025_12_Dresden/VSCODE/*.py)",
+      "Bash(xargs -I {} echo \"Training images: {}\")",
+      "Bash(D:Programyanaconda3envsTF_3_8python.exe -c \"from ultralytics import YOLO; print\\(''Ultralytics available''\\)\")",
+      "Bash(\"D:\\\\Programy\\\\anaconda3\\\\envs\\\\TF_3_8\\\\python.exe\" -c \"from ultralytics import YOLO; print\\(''Ultralytics available''\\)\")"
+    ]
+  }
+}

@@ -1,0 +1,234 @@
+================================================================================
+TRAINING QUICK START GUIDE
+================================================================================
+
+PROJECT: Defect Detection - YOLO Model Comparison
+DATASET: 3,104 training images, 10 defect classes
+ENVIRONMENT: TF_3_8 (TensorFlow 2.13 + CUDA)
+GPU: RTX3090 24GB VRAM
+DATE: 2026-03-30
+
+================================================================================
+OPTION 1: TRAIN ALL MODELS (Complete Comparison)
+================================================================================
+
+Command:
+  D:\Programy\anaconda3\envs\TF_3_8\python.exe TRAIN_ALL_MODELS.py
+
+Models Trained:
+  ✓ YOLOv11m (standard)
+  ✓ YOLOv26m (standard)
+  ✓ YOLOv26x (standard)
+  ✓ YOLO-DAM Config A (random init)
+  ✓ YOLO-DAM Config B (v26 pre-trained) - RECOMMENDED
+  ✓ YOLO-DAM Config C (old baseline)
+
+Time: 20-24 weeks
+Output: All models + comparison report
+
+================================================================================
+OPTION 2: TRAIN STANDARD MODELS ONLY
+================================================================================
+
+Command:
+  D:\Programy\anaconda3\envs\TF_3_8\python.exe TRAIN_STANDARD_MODELS.py
+
+Models Trained:
+  ✓ YOLOv11m
+  ✓ YOLOv26m
+  ✓ YOLOv26x
+
+Time: 9-12 weeks (3-4 weeks per model)
+Output: Standard model comparison
+
+================================================================================
+OPTION 3: TRAIN YOLO-DAM ABLATION ONLY (Recommended to start)
+================================================================================
+
+Command:
+  D:\Programy\anaconda3\envs\TF_3_8\python.exe TRAIN_YOLO_DAM_ABLATION.py
+
+Configurations Trained:
+  Phase 1: Config A (Random init)
+    - Purpose: Show architecture-only benefit
+    - Expected: Precision 45-55%, Recall 78-82%
+    - Time: 3-4 weeks
+
+  Phase 2: Config B (v26 Pre-trained)
+    - Purpose: Show combined benefit
+    - Expected: Precision 70-75%, Recall 82-85%
+    - Time: 3-4 weeks
+
+  Phase 3: Config C (Old baseline)
+    - Purpose: Show improvement from all fixes
+    - Expected: Precision ~40%, Recall ~73%
+    - Time: 3-4 weeks
+
+Total Time: 9-12 weeks
+Output: YOLO-DAM ablation study results
+
+================================================================================
+AFTER TRAINING: COMPREHENSIVE EVALUATION
+================================================================================
+
+Command (runs after any training completes):
+  D:\Programy\anaconda3\envs\TF_3_8\python.exe COMPREHENSIVE_TEST_AND_COMPARE.py
+
+This script will:
+  1. Auto-discover all trained models
+  2. Test each on test dataset
+  3. Calculate metrics by class and overall
+  4. Generate Excel report comparing all models
+
+Time: 1-2 hours (depending on test set size)
+Output: comparison_report.xlsx in TEST_RESULTS/
+
+Report Contains:
+  - Overall metrics comparison (sorted by F1)
+  - Class-level metrics (10 defect types)
+  - Comparison to baseline models
+  - Summary of key findings
+
+================================================================================
+EXPECTED RESULTS
+================================================================================
+
+Standard Models (after 300 epochs):
+  YOLOv11m: Precision 72-75%, Recall 83-85%, F1 0.77-0.80
+  YOLOv26m: Precision 80-82%, Recall 85-87%, F1 0.83-0.85
+  YOLOv26x: Precision 84-86%, Recall 87-89%, F1 0.86-0.87
+
+YOLO-DAM Ablation:
+  Config A: Precision 45-55%, Recall 78-82%, F1 0.61-0.68
+  Config B: Precision 70-75%, Recall 82-85%, F1 0.76-0.80
+  Config C: Precision 38-42%, Recall 72-75%, F1 0.48-0.55
+
+Key Insights:
+  • Pre-training (v26) adds: +20-25% precision
+  • Larger architecture adds: +5-15% precision
+  • M2M radius fix adds: +20-25% precision
+  • Total improvement: +30-35% precision vs old model
+
+================================================================================
+MONITORING TRAINING
+================================================================================
+
+View log files:
+  Config A: type D:\Models\train_log_dam_CONFIG_A.txt
+  Config B: type D:\Models\train_log_dam_CONFIG_B.txt
+  Config C: type D:\Models\train_log_dam_CONFIG_C.txt
+
+View last 50 lines:
+  type D:\Models\train_log_dam_CONFIG_B.txt | tail -50
+
+Check GPU usage:
+  nvidia-smi
+
+Expected loss curve for Config B:
+  Epoch 1:   Loss ≈ 28-30
+  Epoch 50:  Loss ≈ 12-14
+  Epoch 100: Loss ≈ 8-10
+  Epoch 300: Loss ≈ 4-6
+
+================================================================================
+FILE LOCATIONS
+================================================================================
+
+Training Scripts:
+  D:\Projekty\2022_01_BattPor\2025_12_Dresden\VSCODE\
+    ├─ TRAIN_ALL_MODELS.py
+    ├─ TRAIN_STANDARD_MODELS.py
+    ├─ TRAIN_YOLO_DAM_ABLATION.py
+    └─ COMPREHENSIVE_TEST_AND_COMPARE.py
+
+Trained Models:
+  D:\Projekty\2022_01_BattPor\2025_12_Dresden\Models\
+    ├─ YOLODAM_CONFIG_A_random.h5
+    ├─ YOLODAM_CONFIG_B_v26_pretrained.h5
+    └─ YOLODAM_CONFIG_C_old_baseline.h5
+
+Standard Model Results:
+  D:\Projekty\2022_01_BattPor\2025_12_Dresden\Training_Results\
+    ├─ yolov11m_trained\weights\best.pt
+    ├─ yolov26m_trained\weights\best.pt
+    └─ yolov26x_trained\weights\best.pt
+
+Test Results & Reports:
+  D:\Projekty\2022_01_BattPor\2025_12_Dresden\TEST_RESULTS\
+    └─ test_run_YYYYMMDD_HHMMSS\
+       ├─ comparison_report.xlsx
+       ├─ metrics\
+       └─ predictions\
+
+Training Logs:
+  D:\Projekty\2022_01_BattPor\2025_12_Dresden\Models\
+    ├─ train_log_dam_CONFIG_A.txt
+    ├─ train_log_dam_CONFIG_B.txt
+    └─ train_log_dam_CONFIG_C.txt
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+Problem: CUDA Out of Memory
+  Solution: Reduce batch size in training script
+    Change BATCH_SIZE = 4 to 2 or 1
+
+Problem: Loss not decreasing
+  Solution:
+    1. Check dataset path exists
+    2. Run: nvidia-smi (verify GPU is available)
+    3. Check TensorFlow sees GPU: python -c "import tensorflow; print(len(tensorflow.config.list_physical_devices('GPU')))"
+
+Problem: Training hangs
+  Solution:
+    1. Press Ctrl+C to stop
+    2. Restart training
+    3. If persistent, check disk space (300 epochs = ~50GB per model)
+
+Problem: Models not found in comparison script
+  Solution:
+    1. Verify training completed (check logs)
+    2. Check models exist in correct location
+    3. Ensure file permissions allow reading
+
+================================================================================
+RECOMMENDED WORKFLOW
+================================================================================
+
+Step 1: Start with YOLO-DAM Ablation (9-12 weeks)
+  >> D:\Programy\anaconda3\envs\TF_3_8\python.exe TRAIN_YOLO_DAM_ABLATION.py
+
+Step 2: After ablation completes, evaluate results (1-2 hours)
+  >> D:\Programy\anaconda3\envs\TF_3_8\python.exe COMPREHENSIVE_TEST_AND_COMPARE.py
+
+Step 3: Review Excel report to understand which configuration is best
+
+Step 4 (Optional): Train standard models for comparison (9-12 weeks)
+  >> D:\Programy\anaconda3\envs\TF_3_8\python.exe TRAIN_STANDARD_MODELS.py
+
+Step 5: Run comprehensive comparison again with all models
+
+================================================================================
+TIPS FOR SUCCESS
+================================================================================
+
+✓ Monitor loss curves - should decrease smoothly
+✓ Check logs periodically - don't wait 3 weeks to check
+✓ Leave GPU running - training is I/O intensive
+✓ Have backup power - power loss means restarting from last checkpoint
+✓ Verify dataset - ensure all images and labels are accessible
+✓ Document results - save screenshots of interesting metrics
+✓ Compare systematically - use Excel report to identify patterns
+
+================================================================================
+MORE INFORMATION
+================================================================================
+
+For detailed documentation, see:
+  - TRAINING_SCRIPTS_README.md (comprehensive guide)
+  - ABLATION_STUDY_PLAN.md (ablation study methodology)
+  - README_VERSION_2_READY_TO_TRAIN.md (model preparation details)
+  - COMPARISON_YOLO26_vs_YOLO_DAM.md (architecture comparison)
+
+================================================================================
