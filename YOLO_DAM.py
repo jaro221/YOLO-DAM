@@ -14,9 +14,6 @@ EPOCHS = 300
 STEPS_PER_EPOCH = 800
 LEARNING_RATE = 1e-2
 
-IMG_SIZE = 640
-NUM_CLASSES = 10
-
 # Bias initializer for low confidence predictions
 bias_init_low_conf = tf.constant_initializer(-math.log((1 - 0.01) / 0.01))
 CLASS_SIZE_CAPS = {9: (16/640, 60/640),
@@ -385,12 +382,61 @@ class MaskHead_V2(L.Layer):
         
         return mask  # float32, values in [0, 1]
     
+class SegmentationHead_V2(L.Layer):
+    """
+    ✅ Semantic segmentation head for pixel-level defect localization
+
+    Input: p3 features [B, 80, 80, C]
+    Output: segmentation map [B, 640, 640, 10] float32, per-class defect probability
+    Purpose: Fine-grained defect localization + guidance for other tasks
+    """
+    def __init__(self, num_classes=10, width_mult=1.0, name=None):
+        super().__init__(name=name)
+        self.num_classes = num_classes
+        self.width_mult = width_mult
+
+    def build(self, input_shape):
+        c_mid = int(128 * self.width_mult)
+
+        # Feature extraction path
+        self.conv1 = L.Conv2D(c_mid, 3, padding='same', use_bias=False)
+        self.bn1 = L.BatchNormalization(momentum=0.03)
+        self.act1 = L.Activation('relu')
+
+        self.conv2 = L.Conv2D(c_mid//2, 3, padding='same', use_bias=False)
+        self.bn2 = L.BatchNormalization(momentum=0.03)
+        self.act2 = L.Activation('relu')
+
+        # Upsampling to full resolution (80 → 640 is 8x)
+        self.upsample = L.UpSampling2D(size=8, interpolation='bilinear')
+
+        # Per-class segmentation (10 classes)
+        self.seg_conv = L.Conv2D(self.num_classes, 1, padding='same', activation='sigmoid')
+
+        super().build(input_shape)
+
+    def call(self, x, training=None):
+        x = self.conv1(x)
+        x = self.bn1(x, training=training)
+        x = self.act1(x)
+
+        x = self.conv2(x)
+        x = self.bn2(x, training=training)
+        x = self.act2(x)
+
+        x = self.upsample(x)  # [B, 640, 640, C]
+        seg = self.seg_conv(x)  # [B, 640, 640, 10]
+
+        return seg  # float32, values in [0, 1] per class
+
+
 class AutoHead_V2(L.Layer):
     """
-    ✅ CORRECTED: Defect mask head
-    
-    Input: p3 features [B, 80, 80, C]
-    Output: defect mask [B, 640, 640, 1] float32, 1=good, 0=defect
+    ✅ CORRECTED: Autoencoder reconstruction head (no BN for detail preservation)
+
+    Input: c0 features [B, 160, 160, C]
+    Output: reconstructed image [B, 640, 640, 3] float32, values in [0,1]
+    Note: Batch normalization intentionally removed - preserves pixel-level reconstruction detail
     """
     def __init__(self, width_mult=1.0, name=None):
         super().__init__(name=name)
@@ -459,11 +505,11 @@ def build_yolo_model(img_size=640, num_classes=10, width=0.5, depth=0.5,
 
     # ── Neck ──────────────────────────────────────────────────
     neck = PANetNeck(ch, name="neck")
-    p2, p3, n4, n5 = neck([c2, c3, c4, c5])   # ← 4 scales now
+    p2, p3, p4, p5 = neck([c2, c3, c4, c5])   # ← 4 scales now
 
     # ── Detection Head ────────────────────────────────────────
     head = DecoupledHead(ch, num_classes, width_mult=width, name="head")
-    det_outputs_m2m, det_outputs_o2o = head([p2, p3, n4, n5])
+    det_outputs_m2m, det_outputs_o2o = head([p2, p3, p4, p5])
 
     # ── Build outputs dict ────────────────────────────────────
     outputs = {}
@@ -480,12 +526,14 @@ def build_yolo_model(img_size=640, num_classes=10, width=0.5, depth=0.5,
     # ── Auxiliary heads ───────────────────────────────────────
     mask_head = MaskHead_V2(width_mult=width, name="mask_head")
     auto_head = AutoHead_V2(width_mult=width, name="auto_head")
+    seg_head = SegmentationHead_V2(num_classes=num_classes, width_mult=width, name="seg_head")
 
-    outputs['auto_masked_recon']  = mask_head(c3)   # C3 → 80×80 → mask
-    outputs['auto_reconstruction'] = auto_head(c0)  # C0 → 160×160 → recon
+    outputs['auto_masked_recon']  = mask_head(c3)    # C3 → 80×80 → mask (binary)
+    outputs['auto_reconstruction'] = auto_head(c0)   # C0 → 160×160 → recon (RGB)
+    outputs['segmentation']        = seg_head(c3)    # C3 → 80×80 → upsampled to 640×640, per-class
 
     model = Model(inputs=inputs, outputs=outputs,
-                  name="yolo_dam_p2p3p4p5")
+                  name="yolo_dam_p2p3p4p5_seg")
     return model
 
 # ----------------- Usage -----------------

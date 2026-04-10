@@ -18,7 +18,12 @@
       "Bash(xargs -I {} echo \"Training images: {}\")",
       "Bash(D:Programyanaconda3envsTF_3_8python.exe -c \"from ultralytics import YOLO; print\\(''Ultralytics available''\\)\")",
       "Bash(\"D:\\\\Programy\\\\anaconda3\\\\envs\\\\TF_3_8\\\\python.exe\" -c \"from ultralytics import YOLO; print\\(''Ultralytics available''\\)\")",
-      "Bash(git config:*)"
+      "Bash(git config:*)",
+      "Bash(python -m py_compile YOLO_DAM_loss_4tasks.py)",
+      "Bash(python -m py_compile \"YOLO_training_v9_and_v10 _from_scratch.py\")",
+      "Bash(ls -lh YOLO_FROM_SCRATCH*.*)",
+      "Read(//d/Projekty/2022_01_BattPor/2025_12_Dresden/VSCODE/**)",
+      "Bash(grep -n \"^if __name__ == ''''__main__'''':\" \"YOLO_training_v9_and_v10 _from_scratch.py\")"
     ]
   }
 }

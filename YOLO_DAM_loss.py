@@ -30,6 +30,14 @@ CLASS_WEIGHTS = tf.constant([
     2.0,   # 9 Foreign-particle — 1576 but hardest
 ], dtype=tf.float32)
 
+# Objectness weight per scale: boost small objects (P2/P3) vs large (P4/P5)
+POS_WEIGHTS = {
+    "p2": 2.5,  # Small objects: highest weight (tiny defects)
+    "p3": 2.5,  # Small-medium objects
+    "p4": 2.0,  # Medium objects
+    "p5": 1.2,  # Large objects: lower weight
+}
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CIoU Loss
@@ -152,8 +160,8 @@ def detection_loss(preds, targets, num_classes=10,
         else:
             reg_loss = 0.0
 
-        # Objectness
-        pos_weight = {"p2": 2.5, "p3": 2.5, "p4": 2.0, "p5": 1.2}[scale]
+        # Objectness (use configurable weights)
+        pos_weight = POS_WEIGHTS[scale]
         weights    = 1.0 + (pos_weight - 1.0) * t_obj
         obj_bce    = tf.nn.sigmoid_cross_entropy_with_logits(labels=t_obj, logits=pred_obj)
         obj_loss   = tf.reduce_sum(obj_bce * weights) / (tf.reduce_sum(weights) + eps)
@@ -162,7 +170,8 @@ def detection_loss(preds, targets, num_classes=10,
         cls_bce      = focal_loss_per_class(t_cls, pred_cls)
         cls_loss     = tf.reduce_sum(cls_bce * CLASS_WEIGHTS * pos_mask) / pos_count
 
-        m2m_loss = 2.5 * reg_loss + 1.0 * obj_loss + 3.0 * cls_loss
+        # M2M (many-to-many): emphasize recall - find ALL objects
+        m2m_loss = 2.0 * reg_loss + 1.2 * obj_loss + 2.5 * cls_loss
         total_loss += m2m_loss
 
         # ── One-to-one head ───────────────────────────────────────────────
@@ -190,7 +199,8 @@ def detection_loss(preds, targets, num_classes=10,
             focal_loss_per_class(t_cls_o2o, pred_cls_o2o) * CLASS_WEIGHTS * pos_mask_o2o
         ) / pos_count_o2o
 
-        o2o_loss = 2.5 * reg_loss_o2o + 1.0 * obj_loss_o2o + 3.0 * cls_loss_o2o
+        # O2O (one-to-one): emphasize precision - single BEST detections
+        o2o_loss = 3.0 * reg_loss_o2o + 0.8 * obj_loss_o2o + 3.5 * cls_loss_o2o
         total_loss += o2o_loss
 
         comps[f"{scale}_box"]     = reg_loss
