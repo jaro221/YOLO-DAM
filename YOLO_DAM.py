@@ -421,21 +421,25 @@ class AutoHead_V2(L.Layer):
     
     def call(self, x, training=None):
         x = self.conv1(x)
+        x = self.bn1(x, training=training)
         x = self.act1(x)
-        
+
         x = self.conv2(x)
+        x = self.bn2(x, training=training)
         x = self.act2(x)
-        
+
         x = self.conv2A(x)
+        x = self.bn2A(x, training=training)
         x = self.act2A(x)
 
         x = self.conv3(x)
+        x = self.bn3(x, training=training)
         x = self.act3(x)
-        
 
-        auto = self.auto_conv(x)  # [B, 640, 640, 1]
-        
-        return auto  # float32, values in [0, 1]
+
+        auto = self.auto_conv(x)  # [B, 640, 640, 3]
+
+        return auto  # float32, RGB values in [0, 1]
      
     
 

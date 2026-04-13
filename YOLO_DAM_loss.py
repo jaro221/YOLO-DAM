@@ -219,3 +219,221 @@ def detection_loss(preds, targets, num_classes=10,
         comps['recon_loss'] = recon_loss
 
     return total_loss, comps
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Data Augmentation (from manuscript)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def augment_hsv(image):
+    """HSV color space augmentation"""
+    # Random hue shift
+    if tf.random.uniform([]) > 0.5:
+        image = tf.image.random_hue(image, 0.015)
+
+    # Random saturation
+    if tf.random.uniform([]) > 0.5:
+        image = tf.image.random_saturation(image, 0.7, 1.3)
+
+    # Random brightness
+    if tf.random.uniform([]) > 0.5:
+        image = tf.image.random_brightness(image, 0.4)
+
+    # Clip to valid range
+    image = tf.clip_by_value(image, 0.0, 1.0)
+    return image
+
+
+def augment_flip(image, boxes):
+    """Random horizontal flip with box coordinate adjustment"""
+    if tf.random.uniform([]) > 0.5:
+        image = tf.image.flip_left_right(image)
+        # Flip box x-coordinates
+        if len(boxes) > 0:
+            boxes_flipped = tf.stack([
+                1.0 - boxes[:, 0],  # flip center x
+                boxes[:, 1],         # keep y
+                boxes[:, 2],         # keep w
+                boxes[:, 3]          # keep h
+            ], axis=-1)
+            return image, boxes_flipped
+    return image, boxes
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Box Size Clamping
+# ─────────────────────────────────────────────────────────────────────────────
+
+def cap_box_size(x, y, w, h, min_side, max_side):
+    """Clamp box width/height to [min_side, max_side], keep center within [0,1]"""
+    new_w = float(tf.clip_by_value(w, min_side, max_side))
+    new_h = float(tf.clip_by_value(h, min_side, max_side))
+    # Keep centre, ensure box stays within image [0,1]
+    new_x = float(tf.clip_by_value(x, new_w/2, 1.0 - new_w/2))
+    new_y = float(tf.clip_by_value(y, new_h/2, 1.0 - new_h/2))
+    return new_x, new_y, new_w, new_h
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Defect Mask Creation
+# ─────────────────────────────────────────────────────────────────────────────
+
+def create_defect_mask(boxes, classes, img_size=640):
+    """
+    Create binary mask:
+    - 1 = good area (background)
+    - 0 = defect area (inside bounding boxes)
+
+    Args:
+        boxes: numpy array [N, 4] in normalized format [x_center, y_center, w, h]
+        classes: numpy array [N] class indices
+        img_size: image size (640)
+
+    Returns:
+        mask: numpy array [img_size, img_size, 1] with values 0 or 1
+    """
+    import numpy as np
+
+    # Start with all good (1s)
+    mask = np.ones((img_size, img_size, 1), dtype=np.float32)
+
+    if len(boxes) == 0:
+        return mask
+
+    # Convert normalized boxes to pixel coordinates
+    for box in boxes:
+        x_center, y_center, w, h = box
+
+        # Convert to pixel coordinates
+        x_center_px = x_center * img_size
+        y_center_px = y_center * img_size
+        w_px = w * img_size
+        h_px = h * img_size
+
+        # Calculate corners
+        x1 = int(max(0, x_center_px - w_px / 2))
+        y1 = int(max(0, y_center_px - h_px / 2))
+        x2 = int(min(img_size, x_center_px + w_px / 2))
+        y2 = int(min(img_size, y_center_px + h_px / 2))
+
+        # Set defect area to 0
+        mask[y1:y2, x1:x2, 0] = 0.0
+
+    return mask
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Learning Rate Schedule with Warmup
+# ─────────────────────────────────────────────────────────────────────────────
+
+class ImprovedLRSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
+    """Learning rate schedule with proper warmup and cosine decay"""
+
+    def __init__(self, initial_lr=1e-3, warmup_epochs=5, total_epochs=200,
+                 steps_per_epoch=800, min_lr_ratio=0.01):
+        super().__init__()
+        self.initial_lr = initial_lr
+        self.warmup_steps = warmup_epochs * steps_per_epoch
+        self.total_steps = total_epochs * steps_per_epoch
+        self.min_lr = initial_lr * min_lr_ratio
+
+    def __call__(self, step):
+        step = tf.cast(step, tf.float32)
+
+        # Warmup: linear increase from 0 to initial_lr
+        warmup_lr = self.initial_lr * (step / self.warmup_steps)
+
+        # Cosine decay after warmup
+        progress = (step - self.warmup_steps) / (self.total_steps - self.warmup_steps)
+        progress = tf.clip_by_value(progress, 0.0, 1.0)
+        cosine_decay = 0.5 * (1 + tf.cos(3.14159 * progress))
+        decayed_lr = (self.initial_lr - self.min_lr) * cosine_decay + self.min_lr
+
+        lr = tf.where(step < self.warmup_steps, warmup_lr, decayed_lr)
+        return lr
+
+    def get_config(self):
+        return {
+            'initial_lr': self.initial_lr,
+            'warmup_steps': self.warmup_steps,
+            'total_steps': self.total_steps,
+            'min_lr': self.min_lr
+        }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Class Distribution Analysis
+# ─────────────────────────────────────────────────────────────────────────────
+
+def analyze_dataset_distribution(labels_dir):
+    """Analyze class distribution in dataset"""
+    import os
+
+    class_counts = {}
+    total_objects = 0
+
+    label_files = [f for f in os.listdir(labels_dir) if f.endswith('.txt')]
+
+    for label_file in label_files:
+        label_path = os.path.join(labels_dir, label_file)
+        with open(label_path, 'r') as f:
+            for line in f:
+                parts = line.strip().split()
+                if len(parts) == 5:
+                    cls = int(parts[0])
+                    class_counts[cls] = class_counts.get(cls, 0) + 1
+                    total_objects += 1
+
+    print("\n" + "="*80)
+    print("Dataset Class Distribution Analysis")
+    print("="*80)
+    print(f"{'Class':<10} {'Count':<10} {'Percentage':<15} {'Weight (inverse)':<20}")
+    print("-"*80)
+
+    class_weights = {}
+    for cls in sorted(class_counts.keys()):
+        count = class_counts[cls]
+        percentage = (count / total_objects) * 100 if total_objects > 0 else 0
+        # Calculate inverse frequency weight
+        weight = total_objects / (len(class_counts) * count) if count > 0 else 1.0
+        class_weights[cls] = weight
+        print(f"{cls:<10} {count:<10} {percentage:<15.2f}% {weight:<20.3f}")
+
+    print("="*80)
+
+    return class_weights, class_counts
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Duplicate Label Detection
+# ─────────────────────────────────────────────────────────────────────────────
+
+def check_duplicates(labels, file=None, verbose=True):
+    """Find and remove duplicate/redundant labels"""
+    seen     = []
+    dupes    = []
+    unique   = []
+
+    for row in labels:
+        # Round to 6 decimal places to catch float noise
+        key = tuple(round(v, 6) for v in row)
+        if key in seen:
+            dupes.append(row)
+        else:
+            seen.append(key)
+            unique.append(row)
+
+    if verbose:
+        name = file if file else "labels"
+        print(f"\n{'─'*50}")
+        print(f"  File:       {name}")
+        print(f"  Total:      {len(labels)}")
+        print(f"  Unique:     {len(unique)}")
+        print(f"  Duplicates: {len(dupes)}")
+        if dupes:
+            print(f"  Duplicate rows:")
+            for d in dupes:
+                print(f"    cls={int(d[0])}  cx={d[1]:.6f}  cy={d[2]:.6f}  w={d[3]:.6f}  h={d[4]:.6f}")
+        print(f"{'─'*50}")
+
+    return unique, dupes
