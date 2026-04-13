@@ -227,9 +227,9 @@ def main():
     print(f"{'─'*80}\n")
     
     yolov8_models = [
-        "D:/Projekty/2022_01_BattPor/DATA_DEF/YOLOv8/YOLO8n_from_scratch/weights/best.pt",
-        "D:/Projekty/2022_01_BattPor/DATA_DEF/YOLOv8/YOLO8m_from_scratch/weights/best.pt",
-        "D:/Projekty/2022_01_BattPor/DATA_DEF/YOLOv8/YOLO8x_from_scratch/weights/best.pt",
+        "D:/Projekty/2022_01_BattPor/DATA_DEF/YOLOv8/YOLO8n_from_scratch/weights/last.pt",
+        "D:/Projekty/2022_01_BattPor/DATA_DEF/YOLOv8/YOLO8m_from_scratch/weights/last.pt",
+        "D:/Projekty/2022_01_BattPor/DATA_DEF/YOLOv8/YOLO8x_from_scratch/weights/last.pt",
     ]
     
     for model_path in yolov8_models:
@@ -261,9 +261,9 @@ def main():
     print(f"{'─'*80}\n")
     
     yolov9_models = [
-        "D:/Projekty/2022_01_BattPor/DATA_DEF/YOLOv9/YOLO9t_from_scratch/weights/best.pt",
-        "D:/Projekty/2022_01_BattPor/DATA_DEF/YOLOv9/YOLO9m_from_scratch/weights/best.pt",
-        "D:/Projekty/2022_01_BattPor/DATA_DEF/YOLOv9/YOLO9e_from_scratch/weights/best.pt",
+        "D:/Projekty/2022_01_BattPor/DATA_DEF/YOLOv9/YOLO9t_from_scratch/weights/last.pt",
+        "D:/Projekty/2022_01_BattPor/DATA_DEF/YOLOv9/YOLO9m_from_scratch/weights/last.pt",
+        "D:/Projekty/2022_01_BattPor/DATA_DEF/YOLOv9/YOLO9e_from_scratch/weights/last.pt",
     ]
     
     for model_path in yolov9_models:
@@ -295,10 +295,10 @@ def main():
     print(f"{'─'*80}\n")
     
     yolov10_models = [
-        "D:/Projekty/2022_01_BattPor/DATA_DEF/YOLOv10/YOLOv10n_from_scratch/weights/best.pt",
-        "D:/Projekty/2022_01_BattPor/DATA_DEF/YOLOv10/YOLOv10m_from_scratch/weights/best.pt",
-        "D:/Projekty/2022_01_BattPor/DATA_DEF/YOLOv10/YOLOv10l_from_scratch/weights/best.pt",
-        "D:/Projekty/2022_01_BattPor/DATA_DEF/YOLOv10/YOLOv10x_from_scratch/weights/best.pt",
+        "D:/Projekty/2022_01_BattPor/DATA_DEF/YOLOv10/YOLOv10n_from_scratch/weights/last.pt",
+        "D:/Projekty/2022_01_BattPor/DATA_DEF/YOLOv10/YOLOv10m_from_scratch/weights/last.pt",
+        "D:/Projekty/2022_01_BattPor/DATA_DEF/YOLOv10/YOLOv10l_from_scratch/weights/last.pt",
+        "D:/Projekty/2022_01_BattPor/DATA_DEF/YOLOv10/YOLOv10x_from_scratch/weights/last.pt",
     ]
     
     for model_path in yolov10_models:
@@ -330,9 +330,9 @@ def main():
     print(f"{'─'*80}\n")
     
     yolov11_models = [
-        "D:/Projekty/2022_01_BattPor/DATA_DEF/YOLOv11/YOLOv11n_from_scratch/weights/best.pt",
-        "D:/Projekty/2022_01_BattPor/DATA_DEF/YOLOv11/YOLOv11m_from_scratch/weights/best.pt",
-        "D:/Projekty/2022_01_BattPor/DATA_DEF/YOLOv11/YOLOv11x_from_scratch/weights/best.pt",
+        "D:/Projekty/2022_01_BattPor/DATA_DEF/YOLOv11/YOLOv11n_from_scratch/weights/last.pt",
+        "D:/Projekty/2022_01_BattPor/DATA_DEF/YOLOv11/YOLOv11m_from_scratch/weights/last.pt",
+        "D:/Projekty/2022_01_BattPor/DATA_DEF/YOLOv11/YOLOv11x_from_scratch/weights/last.pt",
     ]
     
     for model_path in yolov11_models:
