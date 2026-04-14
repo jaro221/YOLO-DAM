@@ -7,7 +7,15 @@ from YOLO_DAM_loss import detection_loss
 from YOLO_DAM import model
 
 DATASET_DIR = r"D:\Projekty\2022_01_BattPor\2025_12_Dresden\YOLOv8\dataset"
+IMG_SIZE = 640
+NUM_CLASSES = 10
+BATCH_SIZE = 8
+EPOCHS = 300
+STEPS_PER_EPOCH = 800
+LEARNING_RATE = 1e-2
 
+IMG_SIZE = 640
+NUM_CLASSES = 10
 def training(model, epochs=30):
     """
     Continue training with fixed target assignment

@@ -2,6 +2,15 @@
 
 import tensorflow as tf
 import math
+IMG_SIZE = 640
+NUM_CLASSES = 10
+BATCH_SIZE = 8
+EPOCHS = 300
+STEPS_PER_EPOCH = 800
+LEARNING_RATE = 1e-2
+
+IMG_SIZE = 640
+NUM_CLASSES = 10
 
 def ciou_loss(pred_boxes, target_boxes, eps=1e-7):
     """

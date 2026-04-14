@@ -3,7 +3,17 @@ import os
 import tensorflow as tf
 import numpy as np
 import cv2
+import random
 
+IMG_SIZE = 640
+NUM_CLASSES = 10
+BATCH_SIZE = 8
+EPOCHS = 300
+STEPS_PER_EPOCH = 800
+LEARNING_RATE = 1e-2
+
+IMG_SIZE = 640
+NUM_CLASSES = 10
 
 def load_restored_image(img_path, img_size=640):
     try:
@@ -179,11 +189,6 @@ def parse_yolo_label_with_augment(label_path, img_size=IMG_SIZE, augment=True):
                 continue
             cls = int(parts[0])
             x, y, w, h = map(float, parts[1:])
-            if cls in CLASS_SIZE_CAPS:                          # int key, guarded
-                min_side, max_side = CLASS_SIZE_CAPS[cls]
-                x, y, w, h = cap_box_size(x, y, w, h, min_side, max_side)
-
-
 
             boxes.append([x, y, w, h])
             classes.append(cls)
@@ -228,7 +233,7 @@ def yolo_dataset_with_augmentation(images_dir, labels_dir,image_rec, batch_size=
                 img, boxes_tf = augment_flip(img, boxes_tf)
                 
                 boxes = boxes_tf
-                #boxes = boxes_tf.numpy()
+  
                 
             
             # Build targets
@@ -270,6 +275,5 @@ def yolo_dataset_with_augmentation(images_dir, labels_dir,image_rec, batch_size=
     }
     
     ds = tf.data.Dataset.from_generator(_gen, output_signature=out_sig)
-    ds = ds.shuffle(buffer_size=min(500, len(image_files)), reshuffle_each_iteration=True)
     ds = ds.batch(batch_size).prefetch(tf.data.AUTOTUNE)
     return ds
