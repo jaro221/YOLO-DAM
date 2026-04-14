@@ -4,7 +4,7 @@ import tensorflow as tf
 import numpy as np
 from YOLO_DAM_dataset import yolo_dataset_with_augmentation
 from YOLO_DAM_loss import detection_loss
-
+from YOLO_DAM import model
 
 
 def training(model, epochs=30):
