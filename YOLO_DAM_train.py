@@ -6,6 +6,7 @@ from YOLO_DAM_dataset import yolo_dataset_with_augmentation
 from YOLO_DAM_loss import detection_loss
 from YOLO_DAM import model
 
+DATASET_DIR = r"D:\Projekty\2022_01_BattPor\2025_12_Dresden\YOLOv8\dataset"
 
 def training(model, epochs=30):
     """
