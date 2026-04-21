@@ -337,6 +337,7 @@ class AutoHead_V2(L.Layer):
         self.act2A = L.Activation('relu')
         
         self.conv3 = L.Conv2DTranspose(32, kernel_size=(3, 3), strides=(1, 1), padding='same', use_bias=False)
+        self.bn3 = L.BatchNormalization(momentum=0.03)
         self.act3 = L.Activation('relu')
         self.auto_conv = L.Conv2DTranspose(3, kernel_size=(3, 3),strides=(1, 1), padding='same', activation='sigmoid')
         
@@ -344,15 +345,19 @@ class AutoHead_V2(L.Layer):
     
     def call(self, x, training=None):
         x = self.conv1(x)
+        x = self.bn1(x)
         x = self.act1(x)
         
         x = self.conv2(x)
+        x = self.bn2(x)
         x = self.act2(x)
         
         x = self.conv2A(x)
+        x = self.bn2A(x)
         x = self.act2A(x)
 
         x = self.conv3(x)
+        x = self.bn3(x)
         x = self.act3(x)
         
 
