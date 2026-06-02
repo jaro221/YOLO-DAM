@@ -1,0 +1,263 @@
+================================================================================
+QUICK START: Generate Segmentation Masks from Reconstruction Error
+================================================================================
+
+GOAL: Create precise pixel-level segmentation masks from detection + autoencoder
+
+TIME: ~5 minutes (generation) + 30 min (visualization) + 2 hours (training)
+
+================================================================================
+STEP 1: Generate Segmentation Masks (2 minutes)
+================================================================================
+
+Command:
+  python generate_segmentation_masks.py
+
+What happens:
+  ✓ Loads YOLO-DAM v2 model
+  ✓ For each image:
+    - Loads detection labels (true bboxes)
+    - Extracts patches
+    - Runs through autoencoder
+    - Computes reconstruction error (L2)
+    - Applies Gaussian blur (σ=2.0)
+    - Thresholds at 70th percentile
+    - Converts mask → polygon
+  ✓ Saves to dataset/labels_seg/train/*.txt
+
+Output format (YOLO segmentation):
+  <class_id> <x1> <y1> <x2> <y2> ... <xn> <yn>
+  0 0.1 0.2 0.3 0.4 0.5 0.6        # Class 0: polygon with 3 points
+  9 0.6 0.7 0.61 0.70 0.61 0.71    # Class 9: polygon with 3 points
+
+Expected results:
+  - Should process 500+ training images
+  - Success rate: 80-90% (some images may have no valid masks)
+  - Time per image: ~1-2 seconds (depends on GPU)
+
+================================================================================
+STEP 2: Visualize Quality (10-30 minutes, optional but RECOMMENDED)
+================================================================================
+
+Command:
+  python visualize_segmentation_masks.py
+
+What happens:
+  ✓ Creates 4-panel visualization for first 5 images:
+    Panel 1: Original image + detection bboxes (red)
+    Panel 2: Reconstruction error heatmap
+    Panel 3: Blurred error + threshold
+    Panel 4: Final mask overlaid on image
+  ✓ Saves to visualizations_seg/*.png
+
+Inspect results:
+  ✓ Does mask follow defect shape? → Good
+  ✓ Does mask include background? → Bad (lower percentile)
+  ✓ Is mask too small? → Bad (raise percentile)
+  ✓ Is mask too rough? → Bad (increase σ)
+
+================================================================================
+STEP 3: Adjust Parameters (5 minutes if needed)
+================================================================================
+
+Edit generate_segmentation_masks.py:
+
+Line 27: GAUSSIAN_SIGMA = 2.0
+  - Increase to 3.0-4.0 if masks are rough/noisy
+  - Decrease to 1.0 if masks lose detail
+
+Line 28: THRESHOLD_PERCENTILE = 70
+  - Increase to 80-90 if masks include too much background
+  - Decrease to 50-60 if masks are too small
+
+Line 30: MIN_POLYGON_POINTS = 3
+  - Keep at 3 for valid polygons
+
+Re-run: python generate_segmentation_masks.py
+
+================================================================================
+STEP 4: Verify Dataset Structure (1 minute)
+================================================================================
+
+Check directory structure:
+  D:/Projekty/2022_01_BattPor/2025_12_Dresden/YOLOv8/dataset/
+  ├── images/train/    ✓ ~500 images
+  ├── labels/train/    ✓ ~500 bbox labels
+  └── labels_seg/train/  ✓ ~400-450 seg labels (newly generated)
+
+Check YAML config:
+  data_seg.yaml  ✓ Should exist with correct paths
+
+================================================================================
+STEP 5: Train Segmentation Model (2+ hours)
+================================================================================
+
+Option A: Ultralytics YOLO (recommended)
+
+  python << 'EOF'
+  from ultralytics import YOLO
+
+  # Load segmentation model
+  model = YOLO('yolov8m-seg.pt')
+
+  # Train
+  results = model.train(
+      data='data_seg.yaml',
+      epochs=200,
+      imgsz=640,
+      batch=16,
+      device=0,
+  )
+
+  # Test
+  pred = model.predict(source='test_image.jpg')
+  EOF
+
+Option B: YOLO26 (if available)
+
+  from ultralytics import YOLO
+  model = YOLO('yolo26-seg.pt')
+  results = model.train(...)
+
+Monitor training:
+  - Loss should decrease gradually
+  - mAP should improve
+  - Check every 50 epochs
+
+================================================================================
+EXPECTED IMPROVEMENTS
+================================================================================
+
+Detection (baseline):
+  F1: 0.6388
+  Precision: 0.61
+  Recall: 0.66
+
+Segmentation (expected):
+  mAP@0.5: 0.55+ (should improve with better pixel-level labels)
+  Boundary accuracy: 90%+
+
+Class-specific:
+  Class_4 (Crack-long): Better boundary detection
+  Class_9 (Foreign-particle): Precise particle boundary
+  Others: Cleaner masks than bbox-only
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+Problem: script fails with "Could not load weights"
+Solution: MODEL_PATH might be wrong. Check:
+  - Path exists: D:/Projekty/2022_01_BattPor/2025_12_Dresden/Models/YOLODAM_merged_v26_new.h5
+  - Or remove load_weights() and start with random init
+
+Problem: Very few masks generated (< 50%)
+Solution:
+  1. Check detection labels exist: dataset/labels/train/*.txt
+  2. Check autoencoder output reasonable: visualize_segmentation_masks.py
+  3. Try adjusting THRESHOLD_PERCENTILE down (70 → 60)
+
+Problem: Masks look bad (too small/large/noisy)
+Solution: Follow STEP 3 (adjust GAUSSIAN_SIGMA and THRESHOLD_PERCENTILE)
+
+Problem: Out of memory during reconstruction error computation
+Solution:
+  - Reduce batch size in model (less relevant here)
+  - Or process fewer images at once
+  - Edit generate_segmentation_masks.py to process in chunks
+
+================================================================================
+KEY FILES
+================================================================================
+
+generate_segmentation_masks.py
+  Main script to create masks
+  Edit: GAUSSIAN_SIGMA, THRESHOLD_PERCENTILE
+
+visualize_segmentation_masks.py
+  Inspect mask quality
+  Shows: error map, blurred error, final mask
+
+data_seg.yaml
+  YOLO training config
+  Use with: yolo train data=data_seg.yaml
+
+SEGMENTATION_MASK_GENERATION.md
+  Full documentation with theory, troubleshooting, advanced tips
+
+================================================================================
+QUICK COMMAND REFERENCE
+================================================================================
+
+# Generate masks
+python generate_segmentation_masks.py
+
+# Visualize
+python visualize_segmentation_masks.py
+
+# Train with Ultralytics
+python -c "from ultralytics import YOLO; m = YOLO('yolov8m-seg.pt'); m.train(data='data_seg.yaml', epochs=200, batch=16)"
+
+# Check dataset
+ls -la dataset/labels_seg/train/ | wc -l  # Count generated masks
+
+# Cleanup old visualizations
+rm -rf visualizations_seg/*
+
+================================================================================
+TIPS
+================================================================================
+
+✓ Start with defaults (σ=2.0, percentile=70)
+✓ Visualize first before tuning
+✓ Adjust one parameter at a time
+✓ Keep backup of good settings
+✓ Monitor training loss to verify data quality
+✓ If masks too small but needed, lower percentile (60-70)
+✓ If masks too rough, increase σ (2.0-3.0)
+✓ Use higher GAUSSIAN_SIGMA for defects with fuzzy boundaries
+✓ Use lower THRESHOLD_PERCENTILE for small/thin defects
+
+================================================================================
+EXPECTED RUNTIME
+================================================================================
+
+Dataset: ~500 training images
+
+generate_segmentation_masks.py:
+  Load model: ~5 sec
+  Process 500 images: ~1000-1500 seconds (~15-25 min)
+  Total: ~20-30 minutes
+
+visualize_segmentation_masks.py:
+  5 visualizations: ~2-5 minutes
+
+Retrain if needed: ~5 minutes
+
+Total start-to-finish: ~30-40 minutes (generation + visualization)
+
+================================================================================
+SUCCESS CRITERIA
+================================================================================
+
+✓ Generated masks saved to dataset/labels_seg/train/
+✓ Visualization shows reasonable mask boundaries
+✓ Masks follow defect shapes (not just rectangles)
+✓ No overlap between adjacent masks
+✓ Coverage: 80%+ of images have at least one mask
+✓ Ready to train: python -c "from ultralytics import YOLO; ..."
+
+================================================================================
+NEXT STEPS
+================================================================================
+
+1. Run generate_segmentation_masks.py
+2. Run visualize_segmentation_masks.py and inspect 5 examples
+3. If happy: proceed to training
+4. If not happy: adjust σ and percentile, re-run generation
+5. Train segmentation model
+6. Compare segmentation mAP to detection-only baseline
+
+Good luck! 🚀
+
+================================================================================

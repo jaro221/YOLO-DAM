@@ -1,0 +1,20 @@
+# YOLO Segmentation Dataset Configuration
+# Generated from YOLO-DAM detection + autoencoder reconstruction error
+
+path: D:/Projekty/2022_01_BattPor/2025_12_Dresden/YOLOv8/dataset
+train: images/train
+val: images/val
+test:
+
+nc: 10
+names:
+  0: Agglomerate
+  1: Pinhole-long
+  2: Pinhole-trans
+  3: Pinhole-round
+  4: Crack-long
+  5: Crack-trans
+  6: Line-long
+  7: Line-trans
+  8: Line-diag
+  9: Foreign-particle

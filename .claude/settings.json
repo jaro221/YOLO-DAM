@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cp YOLO_DAM.py YOLO_DAM_v2.py)",
+      "Bash(cp YOLO_DAM_loss.py YOLO_DAM_loss_v2.py)",
+      "Bash(python -m py_compile YOLO_DAM_v2.py)",
+      "Bash(python -m py_compile YOLO_DAM_loss_v2.py)",
+      "Bash(ls -1 YOLO_DAM*v2*)",
+      "Bash(ls -1 YOLO_DAM*VERSION* YOLO_DAM*CHANGELOG*)",
+      "Read(//d/Projekty/2022_01_BattPor/2025_12_Dresden/VSCODE/**)",
+      "Bash(find d:Projekty2022_01_BattPor2025_12_DresdenVSCODE -name *dataset_v2* -o -name *dataset*v2*)",
+      "Bash(ls -lh d:Projekty2022_01_BattPor2025_12_DresdenVSCODEABSOLUTE*)",
+      "Bash(wc -l d:Projekty2022_01_BattPor2025_12_DresdenVSCODEABSOLUTE*)",
+      "Bash(python verify_relative_targeting.py)",
+      "Bash(python -m py_compile YOLO_DAM_loss_v2.py YOLO_DAM_train_v2.py verify_relative_targeting.py)",
+      "Bash(\"d:\\\\Projekty\\\\2022_01_BattPor\\\\2025_12_Dresden\\\\VSCODE\\\\STATUS_RELATIVE_TARGETING.txt\":*)",
+      "Bash(python -m py_compile YOLO_DAM_dataset_v2_RELATIVE.py)",
+      "Bash(python -m py_compile YOLO_DAM_train_v2.py test_training_step.py)",
+      "Bash(timeout 120 python test_relative_positioning.py)",
+      "Bash(python -c \"from YOLO_DAM_loss_v2 import detection_loss, l1_loss_relative, get_loss_weights; print\\('✓ Loss module imports OK'\\)\")",
+      "Bash(ls -la YOLO_DAM_loss.py YOLO_DAM_loss_v*.py)"
+    ]
+  }
+}

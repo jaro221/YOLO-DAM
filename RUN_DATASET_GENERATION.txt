@@ -1,0 +1,242 @@
+================================================================================
+SEGMENTATION DATASET GENERATION
+Generate complete train/val dataset with precise segmentation masks
+================================================================================
+
+GOAL: Create DATASET_SEG with segmentation labels for YOLO training
+
+OUTPUT:
+  D:\Projekty\2022_01_BattPor\2025_12_Dresden\DATASET_SEG/
+  ├── images/
+  │   ├── train/  (80% of images)
+  │   └── val/    (20% of images)
+  ├── labels/
+  │   ├── train/  (segmentation masks - polygons)
+  │   └── val/
+  ├── data.yaml   (YOLO config)
+  └── DATASET_INFO.txt (summary)
+
+================================================================================
+STEP 1: RUN DATASET GENERATION
+================================================================================
+
+Command:
+  python prepare_dataset_segmentation.py
+
+This script:
+  1. Loads YOLO-DAM v3 model with C3k2 backbone
+  2. Reads source dataset from: D:/Projekty/2022_01_BattPor/2025_12_Dresden/YOLOv8/dataset
+  3. For each image:
+     - Extracts patches from bounding boxes
+     - Runs through autoencoder
+     - Computes reconstruction error (L2)
+     - Applies Gaussian blur (σ=2.0)
+     - Thresholds at 70th percentile
+     - Converts to polygon coordinates
+  4. Splits 80% train / 20% val
+  5. Copies images to output directory
+  6. Saves segmentation labels (YOLO format)
+  7. Creates data.yaml configuration
+
+Expected time: 30-40 minutes (depending on ~500 images)
+
+================================================================================
+STEP 2: VERIFY DATASET
+================================================================================
+
+Check output directory:
+  D:\Projekty\2022_01_BattPor\2025_12_Dresden\DATASET_SEG
+
+Should contain:
+  ✓ images/train/    (~400 images)
+  ✓ images/val/      (~100 images)
+  ✓ labels/train/    (~350 .txt files - not all images have masks)
+  ✓ labels/val/      (~80 .txt files)
+  ✓ data.yaml        (configuration)
+  ✓ DATASET_INFO.txt (summary statistics)
+
+Check data.yaml:
+  cat "D:\Projekty\2022_01_BattPor\2025_12_Dresden\DATASET_SEG\data.yaml"
+
+Should show:
+  path: D:\Projekty\2022_01_BattPor\2025_12_Dresden\DATASET_SEG
+  train: images/train
+  val: images/val
+  nc: 10
+  names:
+    0: Agglomerate
+    1: Pinhole-long
+    ...
+
+================================================================================
+STEP 3: TRAIN SEGMENTATION MODEL
+================================================================================
+
+Now you can train a YOLO segmentation model:
+
+Option A: YOLOv8m Segmentation
+
+  python << 'EOF'
+  from ultralytics import YOLO
+
+  # Load model
+  model = YOLO('yolov8m-seg.pt')
+
+  # Train
+  results = model.train(
+      data=r'D:\Projekty\2022_01_BattPor\2025_12_Dresden\DATASET_SEG\data.yaml',
+      epochs=200,
+      imgsz=640,
+      batch=16,
+      device=0,
+  )
+
+  # Predict
+  pred = model.predict(source='test_image.jpg')
+  EOF
+
+Option B: YOLO26 Segmentation (if available)
+
+  python << 'EOF'
+  from ultralytics import YOLO
+
+  model = YOLO('yolo26-seg.pt')  # If YOLO26 seg model available
+  results = model.train(
+      data=r'D:\Projekty\2022_01_BattPor\2025_12_Dresden\DATASET_SEG\data.yaml',
+      epochs=200,
+  )
+  EOF
+
+Option C: Custom script with your own YOLO-DAM
+
+  See: YOLO_DAM_train_seg.py (create similar to YOLO_DAM_train_v3.py)
+
+================================================================================
+CONFIGURATION
+================================================================================
+
+Edit prepare_dataset_segmentation.py to customize:
+
+Line 27-28: Segmentation parameters
+  GAUSSIAN_SIGMA = 2.0           # Blur strength (1.0-4.0)
+  THRESHOLD_PERCENTILE = 70       # Error threshold (50-90)
+
+Line 33: Train/val split
+  TRAIN_RATIO = 0.8              # 80% train, 20% val
+
+Line 34: Model source
+  MODEL_PATH = "..."             # Path to weights
+
+Line 29: Output directory
+  OUTPUT_DATASET_DIR = r"..."    # Change if needed
+
+================================================================================
+EXPECTED OUTPUT
+================================================================================
+
+Console output:
+  ============================================================
+  SEGMENTATION DATASET GENERATOR
+  ...
+  Found 500 images
+  Processing: image → segmentation mask → dataset split
+  Train: 400 images
+  Val:   100 images
+
+  Processing train split (400 images)...
+    50/400 images processed
+    100/400 images processed
+    ...
+    400/400 images processed
+
+  ✓ Successfully processed: 350 images
+  ✓ Generated masks: 1250 objects
+
+  ✓ DATASET READY FOR TRAINING
+  ============================================================
+
+Files created:
+  D:\Projekty\2022_01_BattPor\2025_12_Dresden\DATASET_SEG/
+  ├── images/train/          (~400 jpg files)
+  ├── images/val/            (~100 jpg files)
+  ├── labels/train/          (~350 txt files with polygons)
+  ├── labels/val/            (~80 txt files)
+  ├── data.yaml              ✓ Ready for YOLO training
+  └── DATASET_INFO.txt       ✓ Statistics
+
+================================================================================
+LABEL FORMAT (YOLO Segmentation)
+================================================================================
+
+Example label file: labels/train/image_001.txt
+
+Content (one object per line):
+  <class_id> <x1> <y1> <x2> <y2> <x3> <y3> ... <xn> <yn>
+
+Example:
+  0 0.1 0.2 0.3 0.4 0.5 0.6              # Class 0: 3-point polygon
+  4 0.2 0.1 0.4 0.1 0.5 0.5 0.3 0.5      # Class 4: 4-point polygon
+  9 0.6 0.7 0.61 0.70 0.61 0.71          # Class 9: 3-point polygon
+
+Values:
+  class_id: 0-9 (class index)
+  x1-xn: normalized x coordinates [0, 1]
+  y1-yn: normalized y coordinates [0, 1]
+  Minimum 3 points (triangle) per polygon
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+Q: Script runs very slow
+A: Normal - it processes through autoencoder for each object.
+   Expected: ~500 images × 2-3 sec/image = 30-40 min
+
+Q: Very few masks generated (< 50%)
+A: Possible causes:
+   1. Source detection labels missing
+   2. Autoencoder not working properly
+   3. Threshold too high (percentile 70 → try 60)
+   4. Check DATASET_INFO.txt for coverage %
+
+Q: Output directory already exists
+A: Safe to re-run - will overwrite with new generation
+
+Q: Out of memory during processing
+A: Reduce batch size or process subset of images
+   Edit: image_files = image_files[:200] (limit to 200)
+
+Q: No YOLO-DAM v3 model found
+A: Make sure you're on the YOLO_DAM_v3 branch:
+   git checkout YOLO_DAM_v3
+
+================================================================================
+QUICK START (ONE COMMAND)
+================================================================================
+
+cd D:\Projekty\2022_01_BattPor\2025_12_Dresden\VSCODE
+git checkout YOLO_DAM_v3
+python prepare_dataset_segmentation.py
+
+Then train:
+python -c "from ultralytics import YOLO; m = YOLO('yolov8m-seg.pt'); m.train(data=r'D:\Projekty\2022_01_BattPor\2025_12_Dresden\DATASET_SEG\data.yaml', epochs=200, batch=16)"
+
+================================================================================
+SUCCESS CRITERIA
+================================================================================
+
+✓ DATASET_SEG directory created
+✓ images/train/ has ~400 images
+✓ images/val/ has ~100 images
+✓ labels/train/ has ~350 .txt files
+✓ labels/val/ has ~80 .txt files
+✓ data.yaml exists with correct paths
+✓ DATASET_INFO.txt shows statistics
+✓ Ready to train: python prepare_dataset_segmentation.py
+
+Next: Train YOLO segmentation model
+  from ultralytics import YOLO
+  model = YOLO('yolov8m-seg.pt')
+  model.train(data='D:/...DATASET_SEG/data.yaml', epochs=200)
+
+================================================================================

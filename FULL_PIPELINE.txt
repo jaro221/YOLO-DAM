@@ -1,0 +1,296 @@
+================================================================================
+COMPLETE SEGMENTATION DATASET PIPELINE
+Source → Generate → Visualize → Train
+================================================================================
+
+GOAL: Create segmentation dataset with visualization for quality check
+
+================================================================================
+STEP 1: GENERATE SEGMENTATION DATASET (30-80 min)
+================================================================================
+
+Command:
+  python prepare_dataset_segmentation.py
+
+Input:
+  D:\Projekty\2022_01_BattPor\DATA_DEF\YOLOv8\dataset
+  ├── images/train/ (3,104 images)
+  └── labels/train/ (3,104 detection labels)
+
+Process:
+  1. Load YOLO-DAM v3 model (C3k2 backbone)
+  2. For each image:
+     - Load detection bboxes (true labels)
+     - Extract patches
+     - Run through autoencoder
+     - Compute reconstruction error
+     - Apply Gaussian blur (σ=2.0)
+     - Threshold at 70th percentile
+     - Convert to polygon
+  3. Split: 80% train / 20% val
+  4. Copy images to output directory
+
+Output:
+  D:\Projekty\2022_01_BattPor\2025_12_Dresden\DATASET_SEG/
+  ├── images/
+  │   ├── train/      (~2,480 images)
+  │   └── val/        (~620 images)
+  ├── labels/
+  │   ├── train/      (~2,200 polygon labels)
+  │   └── val/        (~550 polygon labels)
+  ├── data.yaml       (YOLO config)
+  └── DATASET_INFO.txt (statistics)
+
+Expected results:
+  ✓ ~2,480 train images copied
+  ✓ ~620 val images copied
+  ✓ ~2,200 train masks generated (~88% coverage)
+  ✓ ~550 val masks generated (~88% coverage)
+  ✓ Total objects segmented: ~2,750
+
+Time: ~30-80 minutes (3,104 images × 1-2 sec/image with autoencoder)
+
+Monitor:
+  Watch console output for progress
+  Should see: "50/500 images processed", "100/500", etc.
+
+================================================================================
+STEP 2: VISUALIZE QUALITY (5-10 min)
+================================================================================
+
+After generation completes, visualize samples:
+
+Command:
+  python visualize_dataset_segmentation.py
+
+Input:
+  D:\Projekty\2022_01_BattPor\2025_12_Dresden\DATASET_SEG/
+  ├── images/train/
+  └── labels/train/
+
+Process:
+  1. Creates legend showing class colors
+  2. Samples 20 random training images
+  3. For each sample, creates 2-panel visualization:
+     Panel 1: Image + Detection BBoxes (true labels)
+     Panel 2: Image + Segmentation Masks (generated)
+  4. Saves comparison PNGs
+
+Output:
+  D:\Projekty\2022_01_BattPor\2025_12_Dresden\DATASET_SEG\visualizations/
+  ├── 00_legend.png                    (class color legend)
+  ├── 01_XXXXX_comparison.png          (sample 1)
+  ├── 02_XXXXX_comparison.png          (sample 2)
+  ├── ...
+  ├── 20_XXXXX_comparison.png          (sample 20)
+  └── README.txt                       (legend and quality guide)
+
+Expected results:
+  ✓ 20 comparison PNGs created
+  ✓ Each shows bbox vs segmentation mask
+  ✓ Can visually inspect quality
+
+Time: ~2-5 minutes
+
+Quality Checklist:
+  ✓ Polygon follows object boundary tightly
+  ✓ Polygon doesn't include background
+  ✓ All objects have segmentation masks
+  ✓ Polygon has sufficient points (≥3)
+  ✓ Masks don't overlap between objects
+  ✓ Small objects have usable masks
+
+View visualizations:
+  Open: D:\Projekty\2022_01_BattPor\2025_12_Dresden\DATASET_SEG\visualizations/
+  Check quality of 20 sample comparisons
+  Verify segmentation looks good
+
+================================================================================
+STEP 3: TRAIN SEGMENTATION MODEL (2-3 hours)
+================================================================================
+
+After verifying quality, train YOLO segmentation:
+
+Python Code:
+  python << 'EOF'
+  from ultralytics import YOLO
+
+  # Load YOLO segmentation model
+  model = YOLO('yolov8m-seg.pt')  # Medium segmentation model
+
+  # Train on generated dataset
+  results = model.train(
+      data=r'D:\Projekty\2022_01_BattPor\2025_12_Dresden\DATASET_SEG\data.yaml',
+      epochs=200,
+      imgsz=640,
+      batch=16,
+      device=0,
+      patience=30,
+  )
+
+  # Evaluate
+  metrics = model.val()
+
+  # Predict on test image
+  results = model.predict(source='test_image.jpg')
+  EOF
+
+Expected:
+  ✓ Model trains on segmentation masks
+  ✓ mAP should improve compared to detection only
+  ✓ Boundary accuracy ~90%+
+  ✓ Final model: runs/segment/train/weights/best.pt
+
+================================================================================
+COMPLETE WORKFLOW (ONE COMMAND AT A TIME)
+================================================================================
+
+Make sure you're on v3 branch:
+  git checkout YOLO_DAM_v3
+
+Then run:
+
+1. Generate:
+  cd D:\Projekty\2022_01_BattPor\2025_12_Dresden\VSCODE
+  python prepare_dataset_segmentation.py
+
+2. Visualize (after generation):
+  python visualize_dataset_segmentation.py
+
+3. Train (after visualization check):
+  python -c "from ultralytics import YOLO; m = YOLO('yolov8m-seg.pt'); m.train(data=r'D:\Projekty\2022_01_BattPor\2025_12_Dresden\DATASET_SEG\data.yaml', epochs=200, batch=16)"
+
+================================================================================
+EXPECTED TIMELINE
+================================================================================
+
+Task                          Time        Status
+─────────────────────────────────────────────────
+Setup                         1 min       ✓
+Load model                    1 min       ✓
+Generate 3,104 images         60-80 min   ⏳ (main processing)
+Train/val split               5 min       ✓
+Create YAML                   1 min       ✓
+─────────────────────────────────────────────────
+Generation total              70-90 min
+─────────────────────────────────────────────────
+Visualize 20 samples          5 min       ⏳
+─────────────────────────────────────────────────
+Manual inspection             5-15 min    (you review images)
+─────────────────────────────────────────────────
+Train YOLO segmentation       120 min     ⏳ (200 epochs)
+─────────────────────────────────────────────────
+TOTAL START-TO-FINISH         ~4-5 hours
+
+================================================================================
+DIRECTORY STRUCTURE AFTER COMPLETION
+================================================================================
+
+D:\Projekty\2022_01_BattPor\2025_12_Dresden\DATASET_SEG/
+├── images/
+│   ├── train/                (~2,480 .jpg files)
+│   └── val/                  (~620 .jpg files)
+├── labels/
+│   ├── train/                (~2,200 .txt files with polygons)
+│   └── val/                  (~550 .txt files)
+├── visualizations/
+│   ├── 00_legend.png         (color reference)
+│   ├── 01_XXXXX_comparison.png
+│   ├── 02_XXXXX_comparison.png
+│   ├── ...
+│   ├── 20_XXXXX_comparison.png
+│   └── README.txt            (quality guide)
+├── data.yaml                 (YOLO training config) ✓
+├── DATASET_INFO.txt          (generation statistics)
+└── DATASET_SEG_INFO.txt      (full details)
+
+================================================================================
+CUSTOMIZATION
+================================================================================
+
+Edit prepare_dataset_segmentation.py:
+
+Line 27-28: Segmentation parameters
+  GAUSSIAN_SIGMA = 2.0           # Blur strength (1.0-4.0)
+  THRESHOLD_PERCENTILE = 70       # Error threshold (50-90)
+
+Line 33: Train/val split
+  TRAIN_RATIO = 0.8              # 80% train, 20% val
+
+Edit visualize_dataset_segmentation.py:
+
+Line 17: Number of visualizations
+  NUM_SAMPLES = 20               # Show 20 random images (or more/less)
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+Problem: Script runs very slow
+→ Normal! Processing through autoencoder takes time
+  Expected: 60-80 minutes for 3,104 images
+  Patience: ☕ (make coffee, it's worth the wait)
+
+Problem: Very few masks generated
+→ Check:
+  1. Source dataset has detection labels?
+  2. Autoencoder running properly?
+  3. Try lowering THRESHOLD_PERCENTILE (70 → 60)
+
+Problem: Visualizations look bad
+→ Options:
+  1. Adjust GAUSSIAN_SIGMA in prepare_dataset_segmentation.py
+  2. Adjust THRESHOLD_PERCENTILE
+  3. Re-run generation with new parameters
+
+Problem: Out of memory
+→ Solution:
+  1. Check model weights loaded
+  2. Reduce batch operations
+  3. May need to process in chunks
+
+Problem: Can't find visualizations folder
+→ Check: D:\Projekty\2022_01_BattPor\2025_12_Dresden\DATASET_SEG\visualizations/
+  Should be created automatically by visualization script
+
+================================================================================
+SUCCESS CRITERIA
+================================================================================
+
+Generation:
+  ✓ DATASET_SEG directory created
+  ✓ images/train/ has ~2,480 images
+  ✓ images/val/ has ~620 images
+  ✓ labels/train/ has ~2,200 .txt files
+  ✓ labels/val/ has ~550 .txt files
+  ✓ data.yaml exists with correct paths
+  ✓ DATASET_INFO.txt shows statistics
+
+Visualization:
+  ✓ visualizations/ folder created
+  ✓ 20 comparison PNGs created
+  ✓ Segmentation looks reasonable
+  ✓ Polygons follow object boundaries
+
+Ready to Train:
+  ✓ All files in place
+  ✓ data.yaml valid
+  ✓ Can run YOLO training
+  ✓ Expected: segmentation mAP improvement
+
+================================================================================
+NEXT STEP
+================================================================================
+
+Ready? Run the complete pipeline:
+
+  git checkout YOLO_DAM_v3
+  cd D:\Projekty\2022_01_BattPor\2025_12_Dresden\VSCODE
+  python prepare_dataset_segmentation.py
+  python visualize_dataset_segmentation.py
+  # Review visualizations in DATASET_SEG/visualizations/
+  # Then train: python -c "from ultralytics import YOLO; ..."
+
+Good luck! 🚀
+
+================================================================================

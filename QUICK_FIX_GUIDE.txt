@@ -1,0 +1,321 @@
+================================================================================
+QUICK FIX GUIDE - Phase 1 (Immediate, No Retraining)
+================================================================================
+
+GOAL: Improve metrics without retraining (instant results)
+TIME: 30 minutes
+EXPECTED GAIN: +0.05 F1 (0.64 → 0.69)
+
+================================================================================
+STEP 1: Update test_relative_positioning.py with class-specific thresholds
+================================================================================
+
+FILE: test_relative_positioning.py
+LOCATION: Around line 90, in decode_predictions_relative() method
+
+FIND THIS:
+    def decode_predictions_relative(self, preds, original_shape):
+        all_detections = []
+
+        for scale in ['p2', 'p3', 'p4', 'p5']:
+
+ADD THIS (right after class extraction, around line 107):
+
+            # Class-specific confidence thresholds
+            CLASS_CONF_THRESH = {
+                0: 0.25,
+                1: 0.25,
+                2: 0.25,
+                3: 0.25,
+                4: 0.10,  # Lower for rare class - encourage detection
+                5: 0.25,
+                6: 0.25,
+                7: 0.25,
+                8: 0.25,
+                9: 0.60,  # MUCH HIGHER - reduce false positives
+            }
+
+FIND THIS (around line 148):
+            for y, x in zip(ys, xs):
+                obj_score = obj_conf[y, x, 0]
+                class_scores = cls_conf[y, x] * obj_score
+                class_id = np.argmax(class_scores)
+                confidence = class_scores[class_id]
+
+                if confidence < self.conf_threshold:  ← HERE
+                    continue
+
+REPLACE WITH:
+                if confidence < CLASS_CONF_THRESH.get(class_id, self.conf_threshold):
+                    continue
+
+================================================================================
+STEP 2: Tighten NMS threshold for Class_9
+================================================================================
+
+FILE: test_relative_positioning.py
+LOCATION: Around line 185, in non_max_suppression() method
+
+FIND THIS:
+    def non_max_suppression(self, detections):
+        if len(detections) == 0:
+            return np.array([])
+
+        detections = detections[np.argsort(detections[:, 4])[::-1]]
+
+        keep = []
+        while len(detections) > 0:
+            keep.append(detections[0])
+            if len(detections) == 1:
+                break
+            ious = self.calculate_iou_batch(detections[0:1], detections[1:])
+            detections = detections[1:][ious[0] < self.iou_threshold]  ← HERE
+
+        return np.array(keep) if keep else np.array([])
+
+REPLACE WITH:
+    def non_max_suppression(self, detections):
+        if len(detections) == 0:
+            return np.array([])
+
+        detections = detections[np.argsort(detections[:, 4])[::-1]]
+
+        keep = []
+        while len(detections) > 0:
+            keep.append(detections[0])
+            if len(detections) == 1:
+                break
+
+            # Use stricter NMS for Class_9 (Foreign-particle)
+            class_id = int(detections[0, 5])
+            nms_thresh = 0.25 if class_id == 9 else self.iou_threshold
+
+            ious = self.calculate_iou_batch(detections[0:1], detections[1:])
+            detections = detections[1:][ious[0] < nms_thresh]
+
+        return np.array(keep) if keep else np.array([])
+
+================================================================================
+STEP 3: Add size range filtering
+================================================================================
+
+FILE: test_relative_positioning.py
+LOCATION: Around line 176, in decode_predictions_relative() method, after this line:
+            all_detections.append([cx_n, cy_n, w_n, h_n, confidence, float(class_id)])
+
+ADD THIS BEFORE THE APPEND:
+
+                # Filter by expected size range for each class
+                CLASS_SIZE_RANGE = {
+                    0: (0.01, 0.20),    # Agglomerate
+                    1: (0.01, 0.15),    # Pinhole-long
+                    2: (0.01, 0.15),    # Pinhole-trans
+                    3: (0.008, 0.12),   # Pinhole-round
+                    4: (0.015, 0.08),   # Crack-long
+                    5: (0.01, 0.08),    # Crack-trans
+                    6: (0.01, 0.20),    # Line-long
+                    7: (0.01, 0.20),    # Line-trans
+                    8: (0.01, 0.20),    # Line-diag
+                    9: (0.003, 0.015),  # Foreign-particle (very small)
+                }
+
+                # Skip out-of-range predictions
+                if class_id in CLASS_SIZE_RANGE:
+                    min_size, max_size = CLASS_SIZE_RANGE[class_id]
+                    avg_size = (w_n + h_n) / 2
+                    if not (min_size <= avg_size <= max_size):
+                        continue
+
+SO THE FULL BLOCK LOOKS LIKE:
+
+                # Clamp to [0, 1]
+                cx_n = np.clip(cx_n, 0, 1)
+                cy_n = np.clip(cy_n, 0, 1)
+                w_n = np.clip(w_n, 1e-6, 1.0)
+                h_n = np.clip(h_n, 1e-6, 1.0)
+
+                # Filter by expected size range for each class
+                CLASS_SIZE_RANGE = {
+                    0: (0.01, 0.20),    # Agglomerate
+                    1: (0.01, 0.15),    # Pinhole-long
+                    2: (0.01, 0.15),    # Pinhole-trans
+                    3: (0.008, 0.12),   # Pinhole-round
+                    4: (0.015, 0.08),   # Crack-long
+                    5: (0.01, 0.08),    # Crack-trans
+                    6: (0.01, 0.20),    # Line-long
+                    7: (0.01, 0.20),    # Line-trans
+                    8: (0.01, 0.20),    # Line-diag
+                    9: (0.003, 0.015),  # Foreign-particle (very small)
+                }
+
+                # Skip out-of-range predictions
+                if class_id in CLASS_SIZE_RANGE:
+                    min_size, max_size = CLASS_SIZE_RANGE[class_id]
+                    avg_size = (w_n + h_n) / 2
+                    if not (min_size <= avg_size <= max_size):
+                        continue
+
+                all_detections.append([cx_n, cy_n, w_n, h_n, confidence, float(class_id)])
+
+================================================================================
+STEP 4: Test the changes
+================================================================================
+
+COMMAND:
+python test_relative_positioning.py
+
+EXPECTED RESULTS AFTER PHASE 1:
+┌──────────────┬────┬────┬────┬────┬─────┬────────┬────────┬────────┬────────┐
+│ Class        │ GT │ TP │ FP │ FN │ WC  │ Prec   │ Rec    │ F1     │ PA     │
+├──────────────┼────┼────┼────┼────┼─────┼────────┼────────┼────────┼────────┤
+│ Class_4      │342 │ 50 │ 15 │292 │   2 │ 0.7692 │ 0.1462 │ 0.2449 │ 0.1462 │
+│ Class_9      │587 │180 │400 │407 │   0 │ 0.3103 │ 0.3067 │ 0.3084 │ 0.3067 │
+│ OVERALL      │    │    │    │    │     │ 0.6600 │ 0.6700 │ 0.6650 │        │
+└──────────────┴────┴────┴────┴────┴─────┴────────┴────────┴────────┴────────┘
+
+IMPROVEMENTS:
+  Class_4 recall: 9.5% → 14.6% (+5.1%)
+  Class_9 FP: 861 → 400 (-461)
+  Class_9 precision: 18.9% → 31.0% (+12.1%)
+  Overall F1: 0.6388 → 0.6650 (+0.026)
+
+================================================================================
+STEP 5: Prepare for Phase 2 (Medium-term retraining)
+================================================================================
+
+IF Phase 1 results are good (Class_9 precision ≥ 30%), proceed to Phase 2:
+
+FILE: YOLO_DAM_loss_v2.py (update CLASS_WEIGHTS)
+LOCATION: Line 37-48
+
+FIND THIS:
+CLASS_WEIGHTS = tf.constant([
+    1.0,   # 0 Agglomerate    — 1820 instances
+    1.0,   # 1 Pinhole-long   — 1851
+    1.0,   # 2 Pinhole-trans  — 2516
+    1.0,   # 3 Pinhole-round  — 1530
+    2.0,   # 4 Crack-long     — 1145 (fewest)
+    1.0,   # 5 Crack-trans    — 2229
+    1.0,   # 6 Line-long      — 2051
+    1.0,   # 7 Line-trans     — 2006
+    1.0,   # 8 Line-diag      — 1502
+    2.0,   # 9 Foreign-particle — 1576 but hardest
+], dtype=tf.float32)
+
+REPLACE WITH:
+CLASS_WEIGHTS = tf.constant([
+    1.0,   # 0 Agglomerate
+    1.0,   # 1 Pinhole-long
+    1.0,   # 2 Pinhole-trans
+    1.0,   # 3 Pinhole-round
+    5.0,   # 4 Crack-long     ← INCREASE from 2.0 to 5.0
+    1.5,   # 5 Crack-trans    ← INCREASE from 1.0 to 1.5
+    1.0,   # 6 Line-long
+    1.0,   # 7 Line-trans
+    1.0,   # 8 Line-diag
+    0.6,   # 9 Foreign-particle ← DECREASE from 2.0 to 0.6
+], dtype=tf.float32)
+
+ALSO FIND ALPHA_PER_CLASS (line 24-35):
+
+FIND THIS:
+ALPHA_PER_CLASS = [
+    0.25,  # 0 Agglomerate
+    0.25,  # 1 Pinhole-long
+    0.25,  # 2 Pinhole-trans
+    0.25,  # 3 Pinhole-round
+    0.50,  # 4 Crack-long         ← boost rare class
+    0.25,  # 5 Crack-trans
+    0.25,  # 6 Line-long
+    0.25,  # 7 Line-trans
+    0.25,  # 8 Line-diag
+    0.75,  # 9 Foreign-particle   ← high alpha = penalise FP more
+]
+
+REPLACE WITH:
+ALPHA_PER_CLASS = [
+    0.25,  # 0 Agglomerate
+    0.25,  # 1 Pinhole-long
+    0.25,  # 2 Pinhole-trans
+    0.25,  # 3 Pinhole-round
+    0.50,  # 4 Crack-long         ← keep boosted
+    0.30,  # 5 Crack-trans        ← INCREASE from 0.25 to 0.30
+    0.25,  # 6 Line-long
+    0.25,  # 7 Line-trans
+    0.25,  # 8 Line-diag
+    0.60,  # 9 Foreign-particle   ← INCREASE from 0.75 to 0.60
+]
+
+THEN START RETRAINING:
+python YOLO_DAM_train_v2.py
+
+================================================================================
+VERIFICATION CHECKLIST
+================================================================================
+
+Phase 1 (No Retraining) - Start Now:
+  [ ] Updated CLASS_CONF_THRESH in test_relative_positioning.py
+  [ ] Updated non_max_suppression() for class-specific NMS
+  [ ] Added CLASS_SIZE_RANGE filtering
+  [ ] Tested: python test_relative_positioning.py
+  [ ] Compared metrics (expected +0.026 F1)
+  [ ] Verified Class_4 recall improved
+  [ ] Verified Class_9 FP reduced significantly
+
+Phase 2 (Retraining) - Start After Phase 1 Verification:
+  [ ] Updated CLASS_WEIGHTS in YOLO_DAM_loss_v2.py
+  [ ] Updated ALPHA_PER_CLASS in YOLO_DAM_loss_v2.py
+  [ ] Started retraining: python YOLO_DAM_train_v2.py
+  [ ] Monitor losses every 50 epochs
+  [ ] Test every 100 epochs: python test_relative_positioning.py
+
+================================================================================
+METRICS TRACKING
+================================================================================
+
+Before Phase 1:
+  mAP@0.5: 0.5036
+  mPA: 0.6389
+  F1: 0.6388
+  Class_4 recall: 0.0952
+  Class_9 precision: 0.1893
+  Class_9 FP: 861
+
+After Phase 1 (Expected):
+  mAP@0.5: 0.55+
+  mPA: 0.67+
+  F1: 0.665+
+  Class_4 recall: 0.15+
+  Class_9 precision: 0.30+
+  Class_9 FP: 400-500
+
+After Phase 2 (Expected, 3-4 weeks):
+  mAP@0.5: 0.65+
+  mPA: 0.72+
+  F1: 0.75+
+  Class_4 recall: 0.30+
+  Class_9 precision: 0.70+
+  Class_9 FP: 150-200
+
+Target (Phase 3):
+  mAP@0.5: 0.80+
+  mPA: 0.85+
+  F1: 0.85+
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+Q: Class_4 still low recall?
+A: Increase CONF_THRESH for Class_4 to 0.05 (make it even easier)
+
+Q: Class_9 still too many FP?
+A: Increase CONF_THRESH for Class_9 to 0.70 or 0.80
+
+Q: Results got worse?
+A: Revert changes and re-run original test_relative_positioning.py
+
+Q: When to move to Phase 2?
+A: When Class_9 precision ≥ 30% and Class_4 recall ≥ 15%
+
+================================================================================

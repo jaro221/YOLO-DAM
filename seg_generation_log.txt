@@ -1,0 +1,6 @@
+D:\Projekty\2022_01_BattPor\2025_12_Dresden\VSCODE\prepare_dataset_segmentation.py:1: SyntaxWarning: invalid escape sequence '\P'
+  """
+  File "D:\Projekty\2022_01_BattPor\2025_12_Dresden\VSCODE\prepare_dataset_segmentation.py", line 68
+    from YOLO_DAM_v3 import model
+    ^^^^
+IndentationError: expected an indented block after 'try' statement on line 67
